@@ -3,7 +3,6 @@ plugins {
 }
 rootProject.name = "xiao_music_kt"
 include("xiao_music")
-include("kw_plugin")
 include("music_server")
 include("music_impl")
 include("plugins")

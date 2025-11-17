@@ -122,7 +122,16 @@ class BackgroundTask {
                                             val params = music.json()
 
                                             val url =
-                                                "http://${appHost}:${appPort}/music/url?params=${URLEncoder.encode(params, StandardCharsets.UTF_8)}&pluginId=${config?.pluginId}"
+                                                if (music.url != null) {
+                                                    music.url?:""
+                                                } else {
+                                                    "http://${appHost}:${appPort}/music/url?params=${
+                                                        URLEncoder.encode(
+                                                            params,
+                                                            StandardCharsets.UTF_8
+                                                        )
+                                                    }&pluginId=${config?.pluginId}"
+                                                }
 
                                             println("播放地址：$url")
                                             XiaoMusicUrl(url = url, audioId = currentId)
