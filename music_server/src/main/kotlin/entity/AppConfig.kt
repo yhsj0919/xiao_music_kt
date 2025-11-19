@@ -15,5 +15,8 @@ data class AppConfig(
     var deviceID: String? = null,
     @field:NotEmpty(message = "响应词不可为空", groups = [VG.Add::class])
     var respWords: List<String>? = null,
-
-    )
+    //响应类型0单曲，1列表
+    var respType: Int? = null,
+    //列表最大数量
+    var maxSize: Int? = null,
+)

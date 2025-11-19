@@ -12,7 +12,6 @@ repositories {
 dependencies {
     testImplementation(kotlin("test"))
 //    compileOnly(kotlin("stdlib"))
-    implementation(project(":kw_plugin"))
 
     implementation("com.github.kevinsawicki:http-request:+")
     implementation("com.google.code.gson:gson:2.11.0")

@@ -3,6 +3,7 @@ package xyz.yhsj.server.music
 import kotlinx.coroutines.*
 import org.koin.mp.KoinPlatform.getKoin
 import org.pf4j.PluginWrapper
+import xyz.yhsj.music_impl.Music
 import xyz.yhsj.music_impl.MusicImpl
 import xyz.yhsj.music_impl.encodeUrl
 import xyz.yhsj.server.APP_CONFIG
@@ -10,6 +11,7 @@ import xyz.yhsj.server.APP_HOST
 import xyz.yhsj.server.APP_PORT
 import xyz.yhsj.server.entity.AppConfig
 import xyz.yhsj.server.ext.KeyValueStore
+import xyz.yhsj.server.ext.containsIn
 import xyz.yhsj.server.ext.json
 import xyz.yhsj.server.ext.removeLongStart
 import xyz.yhsj.server.ext.startIn
@@ -35,6 +37,7 @@ class BackgroundTask {
     val store: KeyValueStore = getKoin().get()
 
     var config: AppConfig?
+    var defRespWords = arrayListOf("陈一发", "放首歌", "每日推荐")
 
     constructor() {
         plugins.loadPlugins()
@@ -70,114 +73,91 @@ class BackgroundTask {
                         if (message != null) {
                             val query = message["query"].toString()
                             val time = message["time"].toString().toLong()
-                            if (lastTime != null && time > lastTime!! && query.startIn(config?.respWords ?: arrayListOf()) != null) {
+                            if (lastTime != null && time > lastTime!! && (query.startIn(config?.respWords ?: arrayListOf()) != null || query.containsIn(defRespWords) != null)) {
                                 println("设备响应：$query")
                                 println("响应词：" + config?.respWords)
                                 miService.playByUrl(config?.deviceID!!, "https://cdn.jsdelivr.net/gh/anars/blank-audio/1-second-of-silence.mp3")
 
-                                if (query.contains("陈一发")) {
-                                    if (cyfPlugin != null) {
-                                        val musicList = cyfPlugin.search("");
+                                try {
 
-                                        val myList = musicList.map { music ->
-                                            async(Dispatchers.IO) {
-                                                println("最终播放歌曲：${music.title} - ${music.artist} - ${music.album}")
-                                                val currentId = 1696420661267792487L + (music.id?.toLong() ?: 1L)
-                                                XiaoMusicUrl(url = music.url?.encodeUrl() ?: "", audioId = currentId.toString())
+
+                                    if (query.contains("陈一发")) {
+                                        if (cyfPlugin != null) {
+                                            val musicList = cyfPlugin.recommend()
+                                            val myList = musicList.map { music ->
+                                                async(Dispatchers.IO) {
+                                                    println("最终播放歌曲：${music.title} - ${music.artist} - ${music.album}")
+                                                    val currentId = 1696420661267792487L + (music.id?.toLong() ?: 1L)
+                                                    XiaoMusicUrl(url = music.url?.encodeUrl() ?: "", audioId = currentId.toString())
+                                                }
+                                            }
+                                            val results = myList.awaitAll()
+                                            if (results.isNotEmpty()) {
+                                                miService.playByMusicUrls(config?.deviceID!!, musics = results)
+                                            } else {
+                                                miService.textToSpeech(config?.deviceID!!, "没发现音乐")
+                                            }
+                                        } else {
+                                            miService.textToSpeech(config?.deviceID!!, "音源不存在")
+                                        }
+                                    } else {
+                                        val key = query.removeLongStart(config?.respWords ?: arrayListOf())
+                                        println("搜索词：$key")
+
+                                        if (key.contains("放首歌") || key.contains("每日推荐")) {
+                                            val musicList = musicPlugin.recommend().take(config?.maxSize ?: 20)
+                                            println("搜索到的音乐：$musicList")
+                                            if (config?.respType == 1) {
+                                                //搜索整个列表，但容易风控
+                                                val myList = musicList.map { music ->
+                                                    async(Dispatchers.IO) { matchFromXM(music, appHost, appPort) }
+                                                }
+                                                val results = myList.awaitAll()
+                                                if (results.isNotEmpty()) {
+                                                    miService.playByMusicUrls(config?.deviceID!!, musics = results)
+                                                } else {
+                                                    miService.textToSpeech(config?.deviceID!!, "没发现音乐")
+                                                }
+                                            } else {
+                                                //搜索单曲
+                                                val music = musicList.randomOrNull()
+                                                if (music != null) {
+                                                    val url = matchFromXM(music, appHost, appPort)
+                                                    miService.playByMusicUrl(config?.deviceID!!, url.url, audioId = url.audioId)
+                                                } else {
+                                                    miService.textToSpeech(config?.deviceID!!, "没发现音乐")
+                                                }
+                                            }
+                                        } else {
+                                            val musicList = musicPlugin.search(key, config?.maxSize ?: 20).take(config?.maxSize ?: 20)
+                                            println("搜索到的音乐：$musicList")
+                                            if (config?.respType == 1) {
+                                                //搜索整个列表，但容易风控
+                                                val myList = musicList.map { music ->
+                                                    async(Dispatchers.IO) { matchFromXM(music, appHost, appPort) }
+                                                }
+                                                val results = myList.awaitAll()
+                                                if (results.isNotEmpty()) {
+                                                    miService.playByMusicUrls(config?.deviceID!!, musics = results)
+                                                } else {
+                                                    miService.textToSpeech(config?.deviceID!!, "没发现音乐")
+                                                }
+                                            } else {
+                                                //搜索单曲
+                                                val music = musicList.firstOrNull()
+                                                if (music != null) {
+                                                    val url = matchFromXM(music, appHost, appPort)
+                                                    miService.playByMusicUrl(config?.deviceID!!, url.url, audioId = url.audioId)
+                                                } else {
+                                                    miService.textToSpeech(config?.deviceID!!, "没发现音乐")
+                                                }
                                             }
                                         }
-                                        val results = myList.awaitAll()
-                                        if (results.isNotEmpty()) {
-                                            miService.playByMusicUrls(config?.deviceID!!, musics = results)
-                                        } else {
-                                            miService.textToSpeech(config?.deviceID!!, "没发现音乐")
-                                        }
-                                    } else {
-                                        miService.textToSpeech(config?.deviceID!!, "陈一发音源不存在")
                                     }
-                                } else {
-                                    val key = query.removeLongStart(config?.respWords ?: arrayListOf())
-                                    println("搜索词：$key")
-                                    val musicList = musicPlugin.search(key)
-                                    println("搜索到的音乐：$musicList")
-
-
-//=============================测试播放列表========================================
-                                    val myList = musicList.map { music ->
-                                        async(Dispatchers.IO) {
-                                            println("最终播放歌曲：${music.title} - ${music.artist} - ${music.album}")
-                                            val list = miService.getAudioId(music.title?.replace("(Live)", "") ?: "")
-
-                                            println("搜索官方音乐：$list")
-
-                                            val currentId =
-                                                ((list.find {
-                                                    it["name"] == music.title && it["artist"].toString()
-                                                        .replace("[^\\u4e00-\\u9fa5A-Za-z0-9]".toRegex(), "") == music.artist?.replace("[^\\u4e00-\\u9fa5A-Za-z0-9]".toRegex(), "")
-                                                } ?: list.firstOrNull())?.get("id")
-                                                    ?: miService.defaultAudioId).toString()
-
-                                            println("匹配官方Id：$currentId")
-
-                                            val params = music.json()
-
-                                            val url =
-                                                if (music.url != null) {
-                                                    music.url?:""
-                                                } else {
-                                                    "http://${appHost}:${appPort}/music/url?params=${
-                                                        URLEncoder.encode(
-                                                            params,
-                                                            StandardCharsets.UTF_8
-                                                        )
-                                                    }&pluginId=${config?.pluginId}"
-                                                }
-
-                                            println("播放地址：$url")
-                                            XiaoMusicUrl(url = url, audioId = currentId)
-                                        }
-                                    }
-
-                                    val results = myList.awaitAll()
-
-                                    if (results.isNotEmpty()) {
-
-                                        miService.playByMusicUrls(config?.deviceID!!, musics = results)
-
-                                    } else {
-                                        miService.textToSpeech(config?.deviceID!!, "没发现音乐")
-
-                                    }
-//=============================测试播放列表========================================
-
-//                                val music = musicList.firstOrNull()
-//                                if (music != null) {
-//                                    println("最终播放歌曲：${music.title} - ${music.artist} - ${music.album}")
-//                                    val list = miService.getAudioId(music.title ?: "")
-//
-//                                    println("搜索官方音乐：$list")
-//
-//                                    val currentId =
-//                                        ((list.find { it["name"] == music.title && it["artist"] == music.artist } ?: list.firstOrNull())?.get("id")
-//                                            ?: miService.defaultAudioId).toString()
-//
-//                                    println("匹配官方Id：$currentId")
-//
-////                                    val ip = NetUtils.getRealLocalIp()
-//                                    val params = music.json().replace("\n", "").replace("\r", "").replace(" ", "")
-//
-//
-//                                    val url = "http://${appHost}:${appPort}/music/url?params=${URLEncoder.encode(params, StandardCharsets.UTF_8)}&pluginId=kuwo-plugin"
-//
-//                                    println("播放地址：$url")
-//                                    miService.playByMusicUrl(config?.deviceID!!, url, audioId = currentId)
-//
-//                                } else {
-//                                    miService.textToSpeech(config?.deviceID!!, "没发现音乐")
-//
-//                                }
+                                } catch (e: Exception) {
+                                    println("搜索时出现异常")
+                                    e.printStackTrace()
                                 }
-
                             }
                             lastTime = time
                             lastQuery = query
@@ -193,6 +173,43 @@ class BackgroundTask {
             }
         }
     }
+
+    /**
+     * 匹配官方ID
+     */
+    fun matchFromXM(music: Music, host: String?, port: Int?): XiaoMusicUrl {
+        println("最终播放歌曲：${music.title} - ${music.artist} - ${music.album}")
+        val list = miService.getAudioId(music.title?.replace("(Live)", "") ?: "")
+
+        println("搜索官方音乐：$list")
+
+        val currentId =
+            ((list.find {
+                it["name"] == music.title && it["artist"].toString()
+                    .replace("[^\\u4e00-\\u9fa5A-Za-z0-9]".toRegex(), "") == music.artist?.replace("[^\\u4e00-\\u9fa5A-Za-z0-9]".toRegex(), "")
+            } ?: list.firstOrNull())?.get("id")
+                ?: miService.defaultAudioId).toString()
+
+        println("匹配官方Id：$currentId")
+
+        val params = music.json()
+
+        val url =
+            if (music.url != null) {
+                music.url
+            } else {
+                "http://${host}:${port}/music/url?params=${
+                    URLEncoder.encode(
+                        params,
+                        StandardCharsets.UTF_8
+                    )
+                }&pluginId=${config?.pluginId}"
+            }
+
+        println("播放地址：$url")
+        return XiaoMusicUrl(url = url!!, audioId = currentId)
+    }
+
 
     fun stop() {
         if (!running.get()) {

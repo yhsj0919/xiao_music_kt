@@ -5,20 +5,6 @@ import xyz.yhsj.xiao_music.entity.XiaoMusicUrl
 
 fun main(args: Array<String>) {
 
-//    val account = MiAccount("账号", "密码", "./mi_token.json")
-//    val service = MiIOService(account)
-//    println(service.deviceList())
-//
-//    service.miotAction("", 5 to 1, listOf("测试文本"))
-//    val kw = KuwoMusic()
-//
-//    var musicList = kw.search("最伟大的作品")
-//    var ss = musicList.find { it["name"].toString().contains("最伟大")  }
-//    if (ss != null) {
-//        kw.getUrl(ss["id"].toString())
-//    }else{
-//        println("no url")
-//    }
     var lastTime: Long? = null
     var lastQuery: String? = null
     val deviceId = "你的设备ID";

@@ -7,9 +7,17 @@ import java.net.URLEncoder
 
 @Extension
 class CYFImpl : MusicImpl {
+    /**
+     * 搜索
+     */
+    override fun search(key: String, size: Int?): List<Music> {
+        return arrayListOf()
+    }
 
-
-    override fun search(key: String): List<Music> {
+    /**
+     * 每日推荐
+     */
+    override fun recommend(): List<Music> {
 
         val mainData = HttpUtils.get(
             "https://www.chatcyf.com/radio/",

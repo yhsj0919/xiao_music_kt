@@ -1,6 +1,6 @@
 package xyz.yhsj.xiao_music
 
-import xyz.yhsj.cyf.toModel
+import xyz.yhsj.xiao_music.utils.toModel
 import java.security.MessageDigest
 import java.util.*
 import javax.crypto.Mac

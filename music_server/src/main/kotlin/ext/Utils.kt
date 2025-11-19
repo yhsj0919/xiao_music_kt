@@ -98,6 +98,12 @@ fun String.paramsToMap(): Map<String, String> {
     }
 }
 
+fun String.containsIn(prefixes: List<String>): String? {
+    return prefixes
+        .filter { this.contains(it) }
+        .maxByOrNull { it.length }
+}
+
 
 fun String.startIn(prefixes: List<String>): String? {
     return prefixes

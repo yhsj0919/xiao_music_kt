@@ -5,9 +5,46 @@ import xyz.yhsj.music_impl.*
 
 @Extension
 class KuWoImpl : MusicImpl {
+    /**
+     * 每日推荐
+     */
+    override fun recommend(): List<Music> {
+        val headers = hashMapOf(
+            "referer" to "http://www.kuwo.cn/",
+            "user-agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36 Edg/142.0.0.0",
+        )
+        // 定义查询参数
+        val params = hashMapOf(
+            "num" to "20",
+            "source" to "kwplayer_ar_11.1.8.2_newpcguanwangmobile.apk",
+            "type" to "rcm_discover",
+            "uid" to 2803814035,
+            "loginUid" to 0,
+        )
+
+        val ss = HttpUtils.get(
+            "http://wapi.kuwo.cn/openapi/v1/recommend/daily/main",
+            params,
+            headers
+        )
+
+        val absList = ss.body().toModel<KuWoRecommendEntity>().child?.firstOrNull()?.child
+        val musicList = absList?.map {
+            Music(
+                id = it.data?.rid,
+                title = it.data?.name,
+                pic = it.data?.img,
+                artist = it.data?.artist,
+                album = it.data?.album,
+                url = null
+            )
+        } ?: emptyList()
+//        println(musicList)
+        return musicList
+    }
 
 
-    override fun search(key: String): List<Music> {
+    override fun search(key: String, size: Int?): List<Music> {
         val headers = hashMapOf(
             "referer" to "http://www.kuwo.cn/",
             "user-agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36 Edg/142.0.0.0",
@@ -21,7 +58,7 @@ class KuWoImpl : MusicImpl {
             "mobi" to "1",
             "all" to key,
             "pn" to 0,
-            "rn" to 20
+            "rn" to (size ?: 20)
         )
 
         val ss = HttpUtils.get(
@@ -54,6 +91,7 @@ class KuWoImpl : MusicImpl {
         val a2: ByteArray = d.a(bArr, bArr.size, first.toByteArray(), first.toByteArray().size)
         return String(b.a(a2, a2.size))
     }
+
 
     override fun url(music: Music): String? {
         val downloadUrl = "http://nmobi.kuwo.cn/mobi.s?f=kuwo&q=${encode(music.id ?: "")}"
