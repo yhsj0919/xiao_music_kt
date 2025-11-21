@@ -1,14 +1,32 @@
 小米账号在设置时为明文传输，请在信任的网络下进行操作
 
 ### music_impl 插件接口
+
 所有插件必须实现这个接口，可以参考已实现的两个插件，后期可能会增加方法
 
 ### music_server 音乐服务
+
 shadow打包后直接运行jar即可，插件放在同级目录下/plugins即可被扫描
 
 ### plugins 现在实现的插件
+
 提供音源，目前测试了两个方法，search搜索音源，url通过server的重定向获取地址，有些地址重定向后可能会失败，需要在搜索时直接提供地址
 
 如果搜索时能获取播放地址，url不为空，否则url必须为null，播放时通过调取url重定向返回地址
 
 ### xiao_music 音箱登录服务
+
+### 运行方法
+
+打包 music_server 得到 music_server-all.jar
+
+运行,默认port为8080，-port=8080可不写
+
+```cmd
+java -jar .\music_server-all.jar -port=8080
+```
+插件放在同级目录下的 plugins 文件夹
+
+插件开发参考plugins模块，里面放了两个示例插件
+
+然后打开xiao_music_app进行设置

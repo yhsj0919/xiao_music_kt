@@ -8,14 +8,17 @@ import xyz.yhsj.server.MI_PASS_WORD
 import xyz.yhsj.server.MI_USER_NAME
 import xyz.yhsj.server.entity.AppConfig
 import xyz.yhsj.server.ext.KeyValueStore
-import xyz.yhsj.server.music.BackgroundTask
+import xyz.yhsj.server.ext.logger
+import xyz.yhsj.server.music.MusicBackgroundTask
+import xyz.yhsj.server.music.ReTryTask
 import xyz.yhsj.xiao_music.MiAccount
 
 /**
  * 系统初始化时运行
  */
 fun Application.init() {
-    val backgroundTask: BackgroundTask by inject()
+    val musicBackgroundTask: MusicBackgroundTask by inject()
+    val reTryTask: ReTryTask by inject()
     val store: KeyValueStore by inject()
     val account: MiAccount by inject()
 
@@ -34,20 +37,23 @@ fun Application.init() {
                 if (login) {
 
                     if (config?.deviceID != null) {
-                        backgroundTask.start(this)
+                        musicBackgroundTask.start(this)
                     }
-                    println("✅小米服务登录成功")
+                    logger.info("✅小米服务登录成功")
 
                 } else {
-                    println("🛑小米服务登录失败")
+                    logger.info("🛑小米服务登录失败")
                 }
 
             } catch (e: Exception) {
 
-                println("🛑用户名，密码不存在")
+                logger.info("🛑用户名，密码不存在")
             }
         }
     }
 
+    launch {
+        reTryTask.start(this)
+    }
 
 }

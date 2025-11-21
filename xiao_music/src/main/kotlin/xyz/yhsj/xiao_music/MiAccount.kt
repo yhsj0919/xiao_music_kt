@@ -238,6 +238,7 @@ class MiAccount(
             try {
                 val body = HttpUtils.get(url, myHeaders, cookies).bytes()
                 val response = String(body, Charsets.UTF_8)
+//                println(response)
                 val info = response.toMap()
                 val data = info["data"].toString().toMap()
                 val ss = (data["records"].json().toModel<List<Map<String, Any?>>>()).get(0)
@@ -245,6 +246,7 @@ class MiAccount(
                 val time = ss.get("time").toString().toLong()
                 return hashMapOf("query" to query, "time" to time)
             } catch (e: Exception) {
+
                 e.printStackTrace()
             }
             return null

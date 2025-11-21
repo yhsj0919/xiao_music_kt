@@ -3,6 +3,8 @@ package xyz.yhsj.server.music
 import kotlinx.coroutines.*
 import org.koin.mp.KoinPlatform.getKoin
 import org.pf4j.PluginWrapper
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import xyz.yhsj.music_impl.Music
 import xyz.yhsj.music_impl.MusicImpl
 import xyz.yhsj.music_impl.encodeUrl
@@ -23,7 +25,9 @@ import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicBoolean
 
 // 定义后台任务类
-class BackgroundTask {
+class MusicBackgroundTask {
+    val logger: Logger = LoggerFactory.getLogger(MusicBackgroundTask::class.java)
+
     private var job: Job? = null
     private val running = AtomicBoolean(false)
 
@@ -45,7 +49,7 @@ class BackgroundTask {
 
         // 打印插件信息
         plugins.getPlugins().forEach { plugin: PluginWrapper ->
-            println("Plugin: ${plugin.descriptor?.pluginId} - ${plugin.descriptor.version}")
+            logger.info("Plugin: ${plugin.descriptor?.pluginId} - ${plugin.descriptor.version}")
         }
 
         config = store.get<AppConfig>(APP_CONFIG)
@@ -54,7 +58,7 @@ class BackgroundTask {
 
     fun start(scope: CoroutineScope) {
         if (running.get()) {
-            println("任务已在运行中")
+            logger.info("任务已在运行中")
             return
         }
         val appHost = store.get<String>(APP_HOST)
@@ -62,7 +66,7 @@ class BackgroundTask {
 
         running.set(true)
         job = scope.launch {
-            println("后台任务已启动 ✅")
+            logger.info("后台任务已启动 ✅")
             while (isActive && running.get()) {
                 try {
                     val musicPlugin = plugins.getExtensions(MusicImpl::class.java, config?.pluginId).firstOrNull()
@@ -74,8 +78,8 @@ class BackgroundTask {
                             val query = message["query"].toString()
                             val time = message["time"].toString().toLong()
                             if (lastTime != null && time > lastTime!! && (query.startIn(config?.respWords ?: arrayListOf()) != null || query.containsIn(defRespWords) != null)) {
-                                println("设备响应：$query")
-                                println("响应词：" + config?.respWords)
+                                logger.info("设备响应：$query")
+                                logger.info("响应词：" + config?.respWords)
                                 miService.playByUrl(config?.deviceID!!, "https://cdn.jsdelivr.net/gh/anars/blank-audio/1-second-of-silence.mp3")
 
                                 try {
@@ -86,7 +90,7 @@ class BackgroundTask {
                                             val musicList = cyfPlugin.recommend()
                                             val myList = musicList.map { music ->
                                                 async(Dispatchers.IO) {
-                                                    println("最终播放歌曲：${music.title} - ${music.artist} - ${music.album}")
+                                                    logger.info("最终播放歌曲：${music.title} - ${music.artist} - ${music.album}")
                                                     val currentId = 1696420661267792487L + (music.id?.toLong() ?: 1L)
                                                     XiaoMusicUrl(url = music.url?.encodeUrl() ?: "", audioId = currentId.toString())
                                                 }
@@ -102,11 +106,11 @@ class BackgroundTask {
                                         }
                                     } else {
                                         val key = query.removeLongStart(config?.respWords ?: arrayListOf())
-                                        println("搜索词：$key")
+                                        logger.info("搜索词：$key")
 
                                         if (key.contains("放首歌") || key.contains("每日推荐")) {
                                             val musicList = musicPlugin.recommend().take(config?.maxSize ?: 20)
-                                            println("搜索到的音乐：$musicList")
+                                            logger.info("搜索到的音乐：$musicList")
                                             if (config?.respType == 1) {
                                                 //搜索整个列表，但容易风控
                                                 val myList = musicList.map { music ->
@@ -130,7 +134,7 @@ class BackgroundTask {
                                             }
                                         } else {
                                             val musicList = musicPlugin.search(key, config?.maxSize ?: 20).take(config?.maxSize ?: 20)
-                                            println("搜索到的音乐：$musicList")
+                                            logger.info("搜索到的音乐：$musicList")
                                             if (config?.respType == 1) {
                                                 //搜索整个列表，但容易风控
                                                 val myList = musicList.map { music ->
@@ -155,7 +159,7 @@ class BackgroundTask {
                                         }
                                     }
                                 } catch (e: Exception) {
-                                    println("搜索时出现异常")
+                                    logger.info("搜索时出现异常")
                                     e.printStackTrace()
                                 }
                             }
@@ -163,12 +167,12 @@ class BackgroundTask {
                             lastQuery = query
                         }
                     } else {
-                        println("插件或者小米设备Id不存在")
+                        logger.info("插件或者小米设备Id不存在")
                     }
 
                     delay(1000)
                 } catch (e: Exception) {
-                    println("后台任务异常: ${e.message}")
+                    logger.info("后台任务异常: ${e.message}")
                 }
             }
         }
@@ -178,10 +182,10 @@ class BackgroundTask {
      * 匹配官方ID
      */
     fun matchFromXM(music: Music, host: String?, port: Int?): XiaoMusicUrl {
-        println("最终播放歌曲：${music.title} - ${music.artist} - ${music.album}")
+        logger.info("最终播放歌曲：${music.title} - ${music.artist} - ${music.album}")
         val list = miService.getAudioId(music.title?.replace("(Live)", "") ?: "")
 
-        println("搜索官方音乐：$list")
+        logger.info("搜索官方音乐：$list")
 
         val currentId =
             ((list.find {
@@ -190,7 +194,7 @@ class BackgroundTask {
             } ?: list.firstOrNull())?.get("id")
                 ?: miService.defaultAudioId).toString()
 
-        println("匹配官方Id：$currentId")
+        logger.info("匹配官方Id：$currentId")
 
         val params = music.json()
 
@@ -206,21 +210,21 @@ class BackgroundTask {
                 }&pluginId=${config?.pluginId}"
             }
 
-        println("播放地址：$url")
+        logger.info("播放地址：$url")
         return XiaoMusicUrl(url = url!!, audioId = currentId)
     }
 
 
     fun stop() {
         if (!running.get()) {
-            println("任务未在运行")
+            logger.info("任务未在运行")
             return
         }
 
         running.set(false)
         job?.cancel()
         job = null
-        println("后台任务已停止 🛑")
+        logger.info("后台任务已停止 🛑")
     }
 
     fun isRunning(): Boolean = running.get()
